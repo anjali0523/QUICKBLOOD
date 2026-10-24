@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}QUICKBLOOD | Modern Blood Donor Finder{% endblock %}</title>
+    <!-- Meta tags for SEO -->
+    <meta name="description" content="QUICKBLOOD - Find available blood donors in your city instantly by blood group. Connect with life-savers and post emergency hospital requirements.">
+    <!-- FontAwesome Icons & Google Fonts -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+<body>
+
+    <!-- Navigation Header -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="{{ url_for('index') }}" class="brand-logo">
+                <div class="brand-drop-icon">
+                    <i class="fas fa-droplet"></i>
+                </div>
+                <span>QUICK<span style="color: var(--accent-red);">BLOOD</span></span>
+            </a>
+
+            <ul class="nav-links">
+                <li>
+                    <a href="{{ url_for('index') }}" class="nav-link {% if request.endpoint == 'index' %}active{% endif %}">
+                        <i class="fas fa-house"></i> Home
+                    </a>
+                </li>
+                <li>
+                    <a href="{{ url_for('donors') }}" class="nav-link {% if request.endpoint == 'donors' %}active{% endif %}">
+                        <i class="fas fa-user-doctor"></i> Find Donors
+                    </a>
+                </li>
+                <li>
+                    <a href="{{ url_for('requests_feed') }}" class="nav-link {% if request.endpoint == 'requests_feed' %}active{% endif %}">
+                        <i class="fas fa-truck-medical"></i> Emergency Requests
+                    </a>
+                </li>
+
+                {% if current_user %}
+                    <li>
+                        <a href="{{ url_for('dashboard') }}" class="nav-link {% if request.endpoint == 'dashboard' %}active{% endif %}">
+                            <i class="fas fa-gauge-high"></i> Dashboard
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{{ url_for('logout') }}" class="btn btn-outline btn-sm">
+                            <i class="fas fa-right-from-bracket"></i> Logout ({{ current_user.name.split(' ')[0] }})
+                        </a>
+                    </li>
+                {% else %}
+                    <li>
+                        <a href="{{ url_for('login') }}" class="nav-link {% if request.endpoint == 'login' %}active{% endif %}">
+                            <i class="fas fa-right-to-bracket"></i> Login
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{{ url_for('register') }}" class="btn btn-primary btn-sm">
+                            <i class="fas fa-heart-pulse"></i> Register as Donor
+                        </a>
+                    </li>
+                {% endif %}
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Main Body Container -->
+    <main class="main-wrapper">
+        <!-- Flashed Alert Messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert-box alert-{{ category }}">
+                        <i class="fas fa-circle-info"></i>
+                        <span>{{ message }}</span>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="footer-content">
+            <div>
+                <p>&copy; 2026 <strong>QUICKBLOOD</strong>. Every drop counts. Save lives together.</p>
+                <p style="font-size:0.8rem; color: var(--text-muted); margin-top:0.2rem;">Powered by Python Flask & SQLite Database</p>
+            </div>
+            <div style="display:flex; gap:1rem;">
+                <a href="#" data-modal-target="eligibility-modal" style="color:var(--text-secondary);"><i class="fas fa-shield-heart"></i> Eligibility Criteria</a>
+                <a href="{{ url_for('donors') }}" style="color:var(--text-secondary);"><i class="fas fa-search"></i> Donor Directory</a>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Eligibility Calculator / Guide Modal -->
+    <div class="modal-backdrop" id="eligibility-modal">
+        <div class="glass-card modal-box">
+            <button class="modal-close">&times;</button>
+            <h3 style="color:var(--accent-red); margin-bottom:1rem;"><i class="fas fa-notes-medical"></i> Donor Eligibility Guide</h3>
+            <p style="color:var(--text-secondary); margin-bottom:1rem; font-size:0.92rem;">Check if you are eligible to donate blood today:</p>
+            
+            <ul style="list-style:none; line-height:1.8; font-size:0.9rem; color:var(--text-primary); margin-bottom:1.5rem;">
+                <li><i class="fas fa-check-circle" style="color:var(--accent-emerald);"></i> Age between 18 and 65 years</li>
+                <li><i class="fas fa-check-circle" style="color:var(--accent-emerald);"></i> Weight over 50 kg (110 lbs)</li>
+                <li><i class="fas fa-check-circle" style="color:var(--accent-emerald);"></i> Good health & normal blood pressure</li>
+                <li><i class="fas fa-clock" style="color:var(--accent-amber);"></i> At least 56 days since your last blood donation</li>
+            </ul>
+
+            <div class="form-group">
+                <label class="form-label">Check Blood Compatibility:</label>
+                <select id="calc-blood-group" class="form-control">
+                    <option value="">Select your Blood Group...</option>
+                    <option value="A+">A+</option>
+                    <option value="A-">A-</option>
+                    <option value="B+">B+</option>
+                    <option value="B-">B-</option>
+                    <option value="AB+">AB+</option>
+                    <option value="AB-">AB-</option>
+                    <option value="O+">O+</option>
+                    <option value="O-">O- (Universal Donor)</option>
+                </select>
+                <div id="calc-result" style="display:none;"></div>
+            </div>
+
+            <button class="btn btn-outline btn-sm" data-modal-close style="width:100%; margin-top:1rem;">Close</button>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

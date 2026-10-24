@@ -1,0 +1,108 @@
+{% extends 'base.html' %}
+
+{% block title %}Register | QUICKBLOOD Blood Donor Finder{% endblock %}
+
+{% block content %}
+<div style="max-width: 580px; margin: 2rem auto;">
+    <div class="glass-card" style="padding: 2.5rem;">
+        <div style="text-align: center; margin-bottom: 2rem;">
+            <div class="brand-drop-icon" style="width: 50px; height: 50px; margin: 0 auto 1rem auto;">
+                <i class="fas fa-heart-pulse" style="font-size: 1.4rem;"></i>
+            </div>
+            <h2 style="font-size: 1.8rem; margin-bottom: 0.3rem;">Join QUICKBLOOD</h2>
+            <p style="color: var(--text-secondary); font-size: 0.9rem;">Register to donate blood or post urgent receiver requests</p>
+        </div>
+
+        <form action="{{ url_for('register') }}" method="POST">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                <div class="form-group">
+                    <label class="form-label"><i class="fas fa-user"></i> Full Name:</label>
+                    <input type="text" name="name" class="form-control" placeholder="e.g. John Doe" required>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label"><i class="fas fa-phone"></i> Phone Number:</label>
+                    <input type="text" name="phone" class="form-control" placeholder="+1 (555) 000-0000" required>
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                <div class="form-group">
+                    <label class="form-label"><i class="fas fa-envelope"></i> Email Address:</label>
+                    <input type="email" name="email" class="form-control" placeholder="john@example.com" required>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label"><i class="fas fa-key"></i> Password:</label>
+                    <input type="password" name="password" class="form-control" placeholder="••••••••" required>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label"><i class="fas fa-user-tag"></i> I want to register as:</label>
+                <select name="role" class="form-control" id="role-select" required>
+                    <option value="Donor" selected>Blood Donor (Save Lives)</option>
+                    <option value="Receiver">Blood Receiver / Patient</option>
+                    <option value="Both">Both (Donor & Requester)</option>
+                </select>
+            </div>
+
+            <div id="donor-fields-container" style="background: rgba(230,57,70,0.08); padding: 1.2rem; border-radius: var(--radius-sm); border: 1px solid rgba(230,57,70,0.2); margin-bottom: 1.2rem;">
+                <h4 style="color: var(--accent-red); margin-bottom: 0.8rem; font-size: 0.95rem;">
+                    <i class="fas fa-droplet"></i> Donor Details
+                </h4>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                    <div class="form-group">
+                        <label class="form-label">Blood Group:</label>
+                        <select name="blood_group" class="form-control">
+                            <option value="A+">A+</option>
+                            <option value="A-">A-</option>
+                            <option value="B+">B+</option>
+                            <option value="B-">B-</option>
+                            <option value="AB+">AB+</option>
+                            <option value="AB-">AB-</option>
+                            <option value="O+">O+</option>
+                            <option value="O-">O- (Universal Donor)</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">City / Location:</label>
+                        <input type="text" name="city" class="form-control" placeholder="e.g. New York, London, Mumbai">
+                    </div>
+                </div>
+
+                <div class="form-group" style="margin-bottom:0;">
+                    <label class="form-label">Bio / Notes for Requesters:</label>
+                    <input type="text" name="notes" class="form-control" placeholder="e.g. Healthy donor available on weekends.">
+                </div>
+            </div>
+
+            <button type="submit" class="btn btn-primary" style="width: 100%; padding: 0.85rem;">
+                <i class="fas fa-heart-circle-check"></i> Complete Registration
+            </button>
+        </form>
+
+        <div style="text-align: center; margin-top: 1.8rem; padding-top: 1.2rem; border-top: 1px solid var(--border-glass); font-size: 0.9rem; color: var(--text-secondary);">
+            Already have an account? 
+            <a href="{{ url_for('login') }}" style="color: var(--accent-red); font-weight: 600;">Login Here</a>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const roleSelect = document.getElementById('role-select');
+    const donorContainer = document.getElementById('donor-fields-container');
+
+    roleSelect.addEventListener('change', () => {
+        if (roleSelect.value === 'Receiver') {
+            donorContainer.style.display = 'none';
+        } else {
+            donorContainer.style.display = 'block';
+        }
+    });
+</script>
+{% endblock %}

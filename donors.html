@@ -1,0 +1,134 @@
+{% extends 'base.html' %}
+
+{% block title %}Find Blood Donors | QUICKBLOOD Search{% endblock %}
+
+{% block content %}
+<div style="margin-bottom: 2rem;">
+    <h1 style="font-size: 2.2rem; margin-bottom: 0.4rem;">
+        <i class="fas fa-users-viewfinder" style="color:var(--accent-red);"></i> Registered Donors Directory
+    </h1>
+    <p style="color: var(--text-secondary);">
+        Filter active donors by blood group, same city, and real-time donation availability.
+    </p>
+</div>
+
+<!-- Filter Control Bar -->
+<div class="glass-card" style="padding: 1.5rem; margin-bottom: 2rem;">
+    <form action="{{ url_for('donors') }}" method="GET" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)) auto; gap: 1.2rem; align-items: end;">
+        <div>
+            <label class="form-label"><i class="fas fa-droplet" style="color:var(--accent-red);"></i> Blood Group:</label>
+            <select name="blood_group" class="form-control auto-submit">
+                <option value="">All Blood Groups</option>
+                <option value="A+" {% if selected_bg == 'A+' %}selected{% endif %}>A+</option>
+                <option value="A-" {% if selected_bg == 'A-' %}selected{% endif %}>A-</option>
+                <option value="B+" {% if selected_bg == 'B+' %}selected{% endif %}>B+</option>
+                <option value="B-" {% if selected_bg == 'B-' %}selected{% endif %}>B-</option>
+                <option value="AB+" {% if selected_bg == 'AB+' %}selected{% endif %}>AB+</option>
+                <option value="AB-" {% if selected_bg == 'AB-' %}selected{% endif %}>AB-</option>
+                <option value="O+" {% if selected_bg == 'O+' %}selected{% endif %}>O+</option>
+                <option value="O-" {% if selected_bg == 'O-' %}selected{% endif %}>O- (Universal Donor)</option>
+            </select>
+        </div>
+
+        <div>
+            <label class="form-label"><i class="fas fa-city" style="color:var(--accent-red);"></i> City / Location:</label>
+            <input type="text" name="city" value="{{ selected_city }}" class="form-control" placeholder="Search by city name..." list="cities-list">
+            <datalist id="cities-list">
+                {% for c in cities %}
+                    <option value="{{ c }}">
+                {% endfor %}
+            </datalist>
+        </div>
+
+        <div>
+            <label class="form-label"><i class="fas fa-clock"></i> Availability Status:</label>
+            <select name="available_only" class="form-control auto-submit">
+                <option value="1" {% if available_only == '1' %}selected{% endif %}>Available Donors Only</option>
+                <option value="0" {% if available_only == '0' %}selected{% endif %}>Show All (Including Unavailable)</option>
+            </select>
+        </div>
+
+        <div>
+            <button type="submit" class="btn btn-primary" style="width: 100%;">
+                <i class="fas fa-filter"></i> Apply Filters
+            </button>
+        </div>
+    </form>
+</div>
+
+<!-- Results Summary Header -->
+<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+    <h3 style="font-size: 1.2rem; color: var(--text-secondary);">
+        Found <strong style="color: var(--text-primary);">{{ donors|length }}</strong> matching donor(s)
+        {% if selected_bg %} for blood type <span style="color:var(--accent-red);">{{ selected_bg }}</span>{% endif %}
+        {% if selected_city %} in <span style="color:var(--text-primary);">"{{ selected_city }}"</span>{% endif %}
+    </h3>
+
+    {% if selected_bg or selected_city or available_only == '0' %}
+        <a href="{{ url_for('donors') }}" class="btn btn-outline btn-sm">
+            <i class="fas fa-xmark"></i> Clear Filters
+        </a>
+    {% endif %}
+</div>
+
+<!-- Donors Grid -->
+{% if donors %}
+    <div class="donors-grid">
+        {% for donor, user in donors %}
+            <div class="glass-card donor-card {% if donor.is_available %}glass-card-glow{% endif %}">
+                <div class="donor-card-header">
+                    <div style="display: flex; align-items: center; gap: 0.8rem;">
+                        <span class="blood-pill">{{ donor.blood_group }}</span>
+                        <div>
+                            <div class="donor-info-name">{{ user.name }}</div>
+                            <div class="donor-location">
+                                <i class="fas fa-location-dot" style="color: var(--accent-red);"></i> {{ donor.city }}
+                            </div>
+                        </div>
+                    </div>
+
+                    {% if donor.is_available %}
+                        <span class="status-badge status-available">
+                            <span class="status-dot"></span> Available
+                        </span>
+                    {% else %}
+                        <span class="status-badge status-unavailable">
+                            Unavailable
+                        </span>
+                    {% endif %}
+                </div>
+
+                <div class="donor-card-body">
+                    <div><i class="fas fa-award" style="color: #FBBF24;"></i> <strong>Total Donations:</strong> {{ donor.units_donated or 0 }} Unit(s)</div>
+                    <div><i class="fas fa-calendar-check"></i> <strong>Last Donated:</strong> {{ donor.last_donated or 'Never' }}</div>
+                    <div><i class="fas fa-heart-pulse" style="color: var(--accent-red);"></i> <strong>Eligibility:</strong> <span class="status-badge {{ donor.eligibility.badge_class }}" style="font-size: 0.72rem; padding: 0.15rem 0.5rem;">{{ donor.eligibility.status_label }}</span></div>
+                    <div style="margin-top:0.4rem; font-style: italic; color: var(--text-muted); font-size:0.85rem;">
+                        "{{ donor.notes or 'Ready to save lives whenever called.' }}"
+                    </div>
+                </div>
+
+                <div class="donor-card-footer">
+                    <a href="tel:{{ user.phone }}" class="btn btn-primary btn-sm" style="flex: 1;">
+                        <i class="fas fa-phone"></i> Call {{ user.phone }}
+                    </a>
+                    <a href="https://wa.me/{{ user.phone|replace(' ', '')|replace('+', '')|replace('-', '') }}" target="_blank" class="btn btn-success btn-sm" title="Message on WhatsApp">
+                        <i class="fab fa-whatsapp"></i>
+                    </a>
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+{% else %}
+    <div class="glass-card" style="padding: 4rem 2rem; text-align: center; margin-top: 2rem;">
+        <i class="fas fa-user-slash" style="font-size: 3.5rem; color: var(--text-muted); margin-bottom: 1rem;"></i>
+        <h3 style="font-size: 1.5rem; margin-bottom: 0.5rem;">No Donors Found Matching Your Criteria</h3>
+        <p style="color: var(--text-secondary); max-width: 500px; margin: 0 auto 1.5rem auto;">
+            Try broadening your city search, clearing the blood group filter, or posting an urgent hospital request for help.
+        </p>
+        <div style="display: flex; gap: 1rem; justify-content: center;">
+            <a href="{{ url_for('donors') }}" class="btn btn-outline">Reset Search Filters</a>
+            <a href="{{ url_for('requests_feed') }}" class="btn btn-primary">Post Emergency Request</a>
+        </div>
+    </div>
+{% endif %}
+{% endblock %}

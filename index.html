@@ -1,0 +1,189 @@
+{% extends 'base.html' %}
+
+{% block title %}QUICKBLOOD | Instant Blood Donor Finder & Emergency Hub{% endblock %}
+
+{% block content %}
+<div class="hero-container">
+    <div>
+        <div style="display:inline-flex; align-items:center; gap:0.5rem; background:rgba(230,57,70,0.15); border:1px solid rgba(230,57,70,0.4); padding:0.35rem 1rem; border-radius:99px; font-size:0.85rem; color:var(--accent-red); margin-bottom:1.2rem; font-weight:600;">
+            <i class="fas fa-bolt"></i> Real-Time Emergency Matching Platform
+        </div>
+        <h1 class="hero-title">
+            Find Matching <span>Blood Donors</span> In Your City Instantly
+        </h1>
+        <p class="hero-subtitle">
+            QUICKBLOOD connects patients in urgent hospital need with verified, voluntary blood donors by blood group, same location, and immediate availability.
+        </p>
+
+        <div style="display:flex; gap:1rem; flex-wrap:wrap;">
+            <a href="{{ url_for('donors') }}" class="btn btn-primary">
+                <i class="fas fa-magnifying-glass"></i> Search Available Donors
+            </a>
+            <a href="{{ url_for('requests_feed') }}" class="btn btn-outline">
+                <i class="fas fa-truck-medical"></i> Post Emergency Request
+            </a>
+        </div>
+
+        <!-- Counter Stats Row -->
+        <div class="hero-stats-row">
+            <div class="stat-item">
+                <span class="stat-number">{{ total_donors }}</span>
+                <span class="stat-label">Registered Donors</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-number" style="color:var(--accent-emerald);">{{ available_donors }}</span>
+                <span class="stat-label">Available Now</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-number" style="color:#FBBF24;">{{ active_requests }}</span>
+                <span class="stat-label">Active Urgent Needs</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Search Card Widget -->
+    <div class="glass-card search-card">
+        <h3 style="margin-bottom:1.2rem; font-size:1.3rem; display:flex; align-items:center; gap:0.6rem;">
+            <i class="fas fa-filter" style="color:var(--accent-red);"></i> Instant Donor Match
+        </h3>
+        
+        <form action="{{ url_for('donors') }}" method="GET">
+            <div class="form-group">
+                <label class="form-label"><i class="fas fa-droplet" style="color:var(--accent-red);"></i> Required Blood Group:</label>
+                <select name="blood_group" class="form-control" required>
+                    <option value="">-- Choose Blood Group --</option>
+                    <option value="A+">A+</option>
+                    <option value="A-">A-</option>
+                    <option value="B+">B+</option>
+                    <option value="B-">B-</option>
+                    <option value="AB+">AB+</option>
+                    <option value="AB-">AB-</option>
+                    <option value="O+">O+</option>
+                    <option value="O-">O- (Universal Donor)</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label"><i class="fas fa-location-dot" style="color:var(--accent-red);"></i> Select City:</label>
+                <input type="text" name="city" class="form-control" placeholder="e.g. New York, London, Mumbai..." list="city-options" required>
+                <datalist id="city-options">
+                    {% for city in cities %}
+                        <option value="{{ city }}">
+                    {% endfor %}
+                </datalist>
+            </div>
+
+            <div class="form-group" style="display:flex; align-items:center; gap:0.5rem; margin-top:0.5rem;">
+                <input type="checkbox" id="avail_only" name="available_only" value="1" checked style="accent-color:var(--accent-red); width:18px; height:18px;">
+                <label for="avail_only" style="font-size:0.9rem; color:var(--text-secondary); cursor:pointer;">
+                    Show Available Donors Only
+                </label>
+            </div>
+
+            <button type="submit" class="btn btn-primary" style="width:100%; margin-top:1rem; padding:0.85rem;">
+                <i class="fas fa-search"></i> Find Donors Now
+            </button>
+        </form>
+    </div>
+</div>
+
+<!-- Critical Emergency Requests Banner Feed -->
+{% if critical_requests %}
+<div style="margin:3rem 0;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
+        <div>
+            <h2 style="font-size:1.8rem; display:flex; align-items:center; gap:0.6rem;">
+                <i class="fas fa-triangle-exclamation" style="color:var(--accent-red);"></i> Urgent Hospital Blood Requests
+            </h2>
+            <p style="color:var(--text-secondary); font-size:0.9rem;">Patients in critical need seeking immediate donors</p>
+        </div>
+        <a href="{{ url_for('requests_feed') }}" class="btn btn-outline btn-sm">View All Requests &rarr;</a>
+    </div>
+
+    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap:1.2rem;">
+        {% for req in critical_requests %}
+            <div class="glass-card glass-card-glow" style="padding:1.4rem;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.8rem;">
+                    <span class="blood-pill blood-pill-sm">{{ req.blood_group }}</span>
+                    <span class="urgency-badge urgency-{% if 'Critical' in req.urgency %}critical{% elif 'Urgent' in req.urgency %}urgent{% else %}normal{% endif %}">
+                        <i class="fas fa-triangle-exclamation"></i> {{ req.urgency }}
+                    </span>
+                </div>
+                <h4 style="font-size:1.1rem; margin-bottom:0.3rem;">Patient: {{ req.patient_name }}</h4>
+                <p style="font-size:0.85rem; color:var(--text-secondary);"><i class="fas fa-hospital" style="color:var(--accent-red);"></i> {{ req.hospital_name }}</p>
+                <p style="font-size:0.85rem; color:var(--text-secondary);"><i class="fas fa-location-dot"></i> {{ req.city }} | {{ req.units_needed }} Unit(s) Needed</p>
+
+                <div style="margin-top:1rem; padding-top:0.8rem; border-top:1px solid var(--border-glass); display:flex; justify-content:space-between; align-items:center;">
+                    <span style="font-size:0.8rem; color:var(--text-muted);">Contact: {{ req.contact_phone }}</span>
+                    <a href="tel:{{ req.contact_phone }}" class="btn btn-success btn-sm"><i class="fas fa-phone"></i> Call Now</a>
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<!-- Blood Type Compatibility Matrix Info Section -->
+<div class="glass-card" style="padding:2rem; margin:3rem 0;">
+    <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:1rem; margin-bottom:1.5rem;">
+        <div>
+            <h3 style="font-size:1.5rem;"><i class="fas fa-microscope" style="color:var(--accent-red);"></i> Blood Compatibility Guide</h3>
+            <p style="color:var(--text-secondary); font-size:0.9rem;">Understanding compatible donor-to-recipient blood types save lives.</p>
+        </div>
+        <button class="btn btn-outline btn-sm" data-modal-target="eligibility-modal">
+            <i class="fas fa-calculator"></i> Check Eligibility Calculator
+        </button>
+    </div>
+
+    <div style="overflow-x:auto;">
+        <table class="compat-matrix">
+            <thead>
+                <tr>
+                    <th>Blood Group</th>
+                    <th>Can Give Blood To</th>
+                    <th>Can Receive Blood From</th>
+                    <th>Type Rarity</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><span class="blood-pill blood-pill-sm">O-</span></td>
+                    <td><strong>EVERYONE</strong> (Universal Donor)</td>
+                    <td>O-</td>
+                    <td><span style="color:#FF4D6D; font-weight:600;">High Emergency Demand</span></td>
+                </tr>
+                <tr>
+                    <td><span class="blood-pill blood-pill-sm">O+</span></td>
+                    <td>O+, A+, B+, AB+</td>
+                    <td>O+, O-</td>
+                    <td>Most Common (~38%)</td>
+                </tr>
+                <tr>
+                    <td><span class="blood-pill blood-pill-sm">A+</span></td>
+                    <td>A+, AB+</td>
+                    <td>A+, A-, O+, O-</td>
+                    <td>Common (~34%)</td>
+                </tr>
+                <tr>
+                    <td><span class="blood-pill blood-pill-sm">B+</span></td>
+                    <td>B+, AB+</td>
+                    <td>B+, B-, O+, O-</td>
+                    <td>Common (~9%)</td>
+                </tr>
+                <tr>
+                    <td><span class="blood-pill blood-pill-sm">AB+</span></td>
+                    <td>AB+</td>
+                    <td><strong>EVERYONE</strong> (Universal Recipient)</td>
+                    <td>Rare (~3%)</td>
+                </tr>
+                <tr>
+                    <td><span class="blood-pill blood-pill-sm">AB-</span></td>
+                    <td>AB+, AB-</td>
+                    <td>AB-, A-, B-, O-</td>
+                    <td>Very Rare (&lt;1%)</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

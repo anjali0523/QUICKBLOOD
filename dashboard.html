@@ -1,0 +1,782 @@
+{% extends 'base.html' %}
+
+{% block title %}Dashboard | QUICKBLOOD User Panel{% endblock %}
+
+{% block content %}
+<div style="margin-bottom: 2rem;">
+    <h1 style="font-size: 2.2rem; margin-bottom: 0.4rem;">
+        <i class="fas fa-gauge-high" style="color:var(--accent-red);"></i> User Dashboard
+    </h1>
+    <p style="color: var(--text-secondary);">
+        Manage your donor availability, live request statuses, donation confirmations, and medical history.
+    </p>
+</div>
+
+<div style="display: grid; grid-template-columns: 360px 1fr; gap: 2rem; align-items: start;">
+    
+    <!-- LEFT COLUMN: User Profile, Availability Control, and Eligibility -->
+    <div>
+        <div class="glass-card" style="padding: 1.8rem; margin-bottom: 1.5rem;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.2rem;">
+                <div style="display: flex; align-items: center; gap: 0.8rem;">
+                    <div style="width: 48px; height: 48px; border-radius: 50%; background: linear-gradient(135deg, var(--primary-crimson), var(--accent-red)); display: flex; align-items: center; justify-content: center; color: #FFF; font-weight: 800; font-size: 1.3rem; box-shadow: 0 0 15px rgba(230,57,70,0.5);">
+                        {{ user.name[0] }}
+                    </div>
+                    <div>
+                        <h3 style="font-size: 1.25rem; font-weight: 700;">{{ user.name }}</h3>
+                        <span style="font-size: 0.82rem; color: var(--text-muted);"><i class="fas fa-id-badge"></i> {{ user.role }} Account</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Donor Availability Switch Section -->
+            {% if donor %}
+                <div style="background: rgba(11, 13, 23, 0.7); padding: 1.2rem; border-radius: var(--radius-sm); border: 1px solid var(--border-glass); margin-bottom: 1.5rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.8rem;">
+                        <span style="font-weight: 600; font-size: 0.9rem;">Current Availability:</span>
+                        <span id="user-status-badge" class="status-badge {% if donor.is_available %}status-available{% else %}status-unavailable{% endif %}">
+                            <span class="status-dot"></span>
+                            <span id="user-status-text">{% if donor.is_available %}Available{% else %}Unavailable{% endif %}</span>
+                        </span>
+                    </div>
+
+                    <!-- Direct AJAX Toggle Button -->
+                    <button id="toggle-avail-btn" class="btn {% if donor.is_available %}btn-outline{% else %}btn-primary{% endif %} btn-sm" style="width: 100%; margin-bottom: 0.6rem;">
+                        <i class="fas {% if donor.is_available %}fa-toggle-on{% else %}fa-toggle-off{% endif %}"></i>
+                        <span>{% if donor.is_available %}Set to Unavailable{% else %}Set to Available (Ready){% endif %}</span>
+                    </button>
+
+                    <!-- Explicit fallback form for no-JS or direct post -->
+                    <form action="{{ url_for('dashboard_toggle_availability') }}" method="POST" style="display: flex; gap: 0.4rem;">
+                        <button type="submit" name="target_status" value="Available" class="btn btn-sm {% if donor.is_available %}btn-success{% else %}btn-outline{% endif %}" style="flex: 1; font-size: 0.78rem; padding: 0.35rem;">
+                            <i class="fas fa-check"></i> Available
+                        </button>
+                        <button type="submit" name="target_status" value="Unavailable" class="btn btn-sm {% if not donor.is_available %}btn-danger{% else %}btn-outline{% endif %}" style="flex: 1; font-size: 0.78rem; padding: 0.35rem;">
+                            <i class="fas fa-ban"></i> Unavailable
+                        </button>
+                    </form>
+
+                    <p style="font-size: 0.76rem; color: var(--text-muted); margin-top: 0.6rem; text-align: center; line-height: 1.4;">
+                        Automatically turns <strong style="color:var(--text-primary);">Unavailable</strong> when a donation is completed to ensure safe biological recovery.
+                    </p>
+                </div>
+
+                <!-- Eligibility & Medical Cooling Window Tracker -->
+                <div class="eligibility-box">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                        <span style="font-weight: 700; font-size: 0.85rem; color: var(--text-primary);">
+                            <i class="fas fa-heart-pulse" style="color: var(--accent-red);"></i> Donation Eligibility
+                        </span>
+                        <span class="status-badge {{ donor.eligibility.badge_class }}" style="font-size: 0.72rem; padding: 0.2rem 0.5rem;">
+                            {{ donor.eligibility.status_label }}
+                        </span>
+                    </div>
+
+                    {% if not donor.eligibility.is_eligible and donor.eligibility.days_since is not none %}
+                        <div style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 0.3rem;">
+                            Last donated <strong>{{ donor.eligibility.days_since }} days ago</strong>. Recommended cooling period is 56 days.
+                        </div>
+                        <div class="cooling-progress-bar">
+                            <div class="cooling-progress-fill" style="width: {{ (donor.eligibility.days_since / 56 * 100)|round|int }}%;"></div>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--text-muted);">
+                            <span>Day {{ donor.eligibility.days_since }} of 56</span>
+                            <span>{{ donor.eligibility.days_remaining }} day(s) remaining</span>
+                        </div>
+                    {% else %}
+                        <p style="font-size: 0.8rem; color: #34D399; margin: 0.3rem 0 0 0;">
+                            <i class="fas fa-circle-check"></i> {{ donor.eligibility.message }}
+                        </p>
+                    {% endif %}
+                </div>
+
+                <div style="font-size: 0.88rem; color: var(--text-secondary); display: flex; flex-direction: column; gap: 0.6rem; margin-bottom: 1rem;">
+                    <div><i class="fas fa-droplet" style="color:var(--accent-red);"></i> <strong>Blood Group:</strong> <span class="blood-pill blood-pill-sm">{{ donor.blood_group }}</span></div>
+                    <div><i class="fas fa-location-dot" style="color:var(--accent-red);"></i> <strong>City:</strong> {{ donor.city }}</div>
+                    <div><i class="fas fa-phone"></i> <strong>Phone:</strong> {{ user.phone }}</div>
+                    <div><i class="fas fa-envelope"></i> <strong>Email:</strong> {{ user.email }}</div>
+                    <div><i class="fas fa-award" style="color:#FBBF24;"></i> <strong>Units Donated:</strong> <span style="font-weight:700; color:var(--text-primary);">{{ donor.units_donated or 0 }} Unit(s)</span></div>
+                    <div><i class="fas fa-calendar-check"></i> <strong>Last Donation:</strong> {{ donor.last_donated or 'Never' }}</div>
+                </div>
+            {% else %}
+                <div style="padding: 1.2rem; background: rgba(59,130,246,0.1); border-radius: 8px; border: 1px solid rgba(59,130,246,0.3); margin-bottom: 1.2rem;">
+                    <h4 style="color: #60A5FA; margin-bottom: 0.4rem; font-size: 1rem;"><i class="fas fa-circle-info"></i> Recipient Account</h4>
+                    <p style="font-size: 0.85rem; color: var(--text-secondary);">You can publish emergency blood requests for patients and track real-time fulfillment right here.</p>
+                </div>
+                <div style="font-size: 0.88rem; color: var(--text-secondary); display: flex; flex-direction: column; gap: 0.6rem; margin-bottom: 1rem;">
+                    <div><i class="fas fa-phone"></i> <strong>Phone:</strong> {{ user.phone }}</div>
+                    <div><i class="fas fa-envelope"></i> <strong>Email:</strong> {{ user.email }}</div>
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- Edit Profile Accordion Card -->
+        <div class="glass-card" style="padding: 1.5rem;">
+            <h4 style="font-size: 1.05rem; margin-bottom: 1rem; color: var(--text-primary);"><i class="fas fa-user-pen"></i> Update Contact Info</h4>
+            <form action="{{ url_for('update_profile') }}" method="POST">
+                <div class="form-group">
+                    <label class="form-label">Phone Number:</label>
+                    <input type="text" name="phone" value="{{ user.phone }}" class="form-control" required>
+                </div>
+
+                {% if donor %}
+                    <div class="form-group">
+                        <label class="form-label">City:</label>
+                        <input type="text" name="city" value="{{ donor.city }}" class="form-control" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Blood Group:</label>
+                        <select name="blood_group" class="form-control">
+                            {% for bg in ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'] %}
+                                <option value="{{ bg }}" {% if donor.blood_group == bg %}selected{% endif %}>{{ bg }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Last Donated Date:</label>
+                        <input type="date" name="last_donated" value="{{ donor.last_donated if donor.last_donated and donor.last_donated != 'Never' else '' }}" class="form-control">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Donor Notes / Bio:</label>
+                        <input type="text" name="notes" value="{{ donor.notes }}" class="form-control">
+                    </div>
+                {% endif %}
+
+                <button type="submit" class="btn btn-outline btn-sm" style="width: 100%;">
+                    <i class="fas fa-floppy-disk"></i> Save Profile Updates
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- RIGHT COLUMN: Tabbed Management (Recipient Requests, Donor Accepted Requests, Donation History) -->
+    <div>
+        
+        <!-- Header & Post Request Button -->
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;">
+            <div>
+                <h2 style="font-size: 1.6rem; font-weight: 800;">
+                    <i class="fas fa-heart-pulse" style="color:var(--accent-red);"></i> Requests & Donation Tracker
+                </h2>
+                <p style="color: var(--text-secondary); font-size: 0.9rem;">
+                    Full lifecycle management from initial request to recipient confirmation.
+                </p>
+            </div>
+            <button class="btn btn-primary btn-sm" data-modal-target="new-request-modal">
+                <i class="fas fa-plus"></i> Post Emergency Request
+            </button>
+        </div>
+
+        <!-- Dashboard Navigation Tabs -->
+        <div class="dash-tabs" id="dashboard-tab-bar">
+            <button class="dash-tab-btn active" data-tab="tab-active-requests">
+                <i class="fas fa-hourglass-half"></i> Active Requests
+                <span class="badge-count">{{ active_requests|length }}</span>
+            </button>
+
+            <button class="dash-tab-btn" data-tab="tab-completed-requests">
+                <i class="fas fa-box-archive"></i> Completed & Past Requests
+                <span class="badge-count">{{ completed_requests|length }}</span>
+            </button>
+
+            {% if donor %}
+                <button class="dash-tab-btn" data-tab="tab-assigned-donations">
+                    <i class="fas fa-hand-holding-medical" style="color:var(--accent-red);"></i> Your Accepted Donations
+                    <span class="badge-count">{{ active_assigned|length }}</span>
+                </button>
+
+                <button class="dash-tab-btn" data-tab="tab-donation-history">
+                    <i class="fas fa-clock-rotate-left"></i> Donation History & Impact
+                    <span class="badge-count">{{ donation_history|length }}</span>
+                </button>
+            {% endif %}
+        </div>
+
+        <!-- =================================================================== -->
+        <!-- TAB 1: ACTIVE PUBLISHED REQUESTS (Recipient View)                   -->
+        <!-- =================================================================== -->
+        <div id="tab-active-requests" class="tab-content active">
+            {% if active_requests %}
+                <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+                    {% for req in active_requests %}
+                        <div class="glass-card {% if 'Critical' in req.urgency %}glass-card-glow{% endif %}" style="padding: 1.6rem; position: relative;" id="request-card-{{ req.id }}">
+                            
+                            <!-- Top Row: Patient, Blood Pill, Status -->
+                            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.8rem; flex-wrap: wrap; gap: 0.8rem;">
+                                <div style="display: flex; align-items: center; gap: 0.9rem;">
+                                    <span class="blood-pill">{{ req.blood_group }}</span>
+                                    <div>
+                                        <div style="display: flex; align-items: center; gap: 0.6rem;">
+                                            <h3 style="font-size: 1.3rem; font-weight: 700;">{{ req.patient_name }}</h3>
+                                            <span class="urgency-badge urgency-{% if 'Critical' in req.urgency %}critical{% elif 'Urgent' in req.urgency %}urgent{% else %}normal{% endif %}">
+                                                {{ req.urgency }}
+                                            </span>
+                                        </div>
+                                        <div style="font-size: 0.86rem; color: var(--text-secondary); margin-top: 0.2rem;">
+                                            <i class="fas fa-hospital" style="color:var(--accent-red);"></i> {{ req.hospital_name }} &bull;
+                                            <i class="fas fa-location-dot"></i> {{ req.city }} &bull;
+                                            <strong>{{ req.units_needed }} Unit(s) Needed</strong>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 0.3rem;">
+                                    <span class="status-badge {{ req.status_badge_class }}" style="padding: 0.4rem 0.9rem; font-size: 0.85rem;">
+                                        <i class="fas {{ req.status_icon }}"></i> {{ req.status }}
+                                    </span>
+                                    <span style="font-size: 0.75rem; color: var(--text-muted);">
+                                        Posted {{ req.created_at.strftime('%b %d, %Y') }}
+                                    </span>
+                                </div>
+                            </div>
+
+                            <!-- Visual Lifecycle Progress Stepper (4-Stage) -->
+                            <div class="request-stepper">
+                                <div class="stepper-line">
+                                    <div class="stepper-line-fill" style="width: {% if req.progress_step == 1 %}0%{% elif req.progress_step == 2 %}33%{% elif req.progress_step == 3 %}66%{% elif req.progress_step == 4 %}100%{% else %}0%{% endif %};"></div>
+                                </div>
+
+                                <!-- Step 1: Request Created -->
+                                <div class="stepper-step {% if req.progress_step >= 1 %}completed{% endif %}">
+                                    <div class="stepper-circle">
+                                        <i class="fas {% if req.progress_step > 1 %}fa-check{% else %}fa-hourglass-start{% endif %}"></i>
+                                    </div>
+                                    <span class="stepper-label">1. Pending</span>
+                                </div>
+
+                                <!-- Step 2: Donor Accepted -->
+                                <div class="stepper-step {% if req.progress_step > 2 %}completed{% elif req.progress_step == 2 %}active{% endif %}">
+                                    <div class="stepper-circle">
+                                        <i class="fas {% if req.progress_step > 2 %}fa-check{% else %}fa-handshake{% endif %}"></i>
+                                    </div>
+                                    <span class="stepper-label">2. Accepted</span>
+                                </div>
+
+                                <!-- Step 3: Donation in Progress -->
+                                <div class="stepper-step {% if req.progress_step > 3 %}completed{% elif req.progress_step == 3 %}active{% endif %}">
+                                    <div class="stepper-circle">
+                                        <i class="fas {% if req.progress_step > 3 %}fa-check{% else %}fa-syringe{% endif %}"></i>
+                                    </div>
+                                    <span class="stepper-label">3. In Progress</span>
+                                </div>
+
+                                <!-- Step 4: Fulfilled -->
+                                <div class="stepper-step {% if req.progress_step == 4 %}completed{% endif %}">
+                                    <div class="stepper-circle">
+                                        <i class="fas fa-circle-check"></i>
+                                    </div>
+                                    <span class="stepper-label">4. Fulfilled</span>
+                                </div>
+                            </div>
+
+                            <!-- Assigned Donor Box (If a donor accepted this request) -->
+                            {% if req.assigned_donor %}
+                                <div class="donor-assigned-box">
+                                    <div style="display: flex; align-items: center; gap: 0.8rem;">
+                                        <div style="width: 38px; height: 38px; border-radius: 50%; background: linear-gradient(135deg, #0EA5E9, #2563EB); display: flex; align-items: center; justify-content: center; font-weight: 700;">
+                                            {{ req.assigned_donor.name[0] }}
+                                        </div>
+                                        <div>
+                                            <div style="font-weight: 700; font-size: 0.95rem; color: #38BDF8;">
+                                                <i class="fas fa-handshake"></i> Assigned Donor: {{ req.assigned_donor.name }}
+                                            </div>
+                                            <div style="font-size: 0.82rem; color: var(--text-secondary);">
+                                                Phone: <strong>{{ req.assigned_donor.phone }}</strong> &bull; Blood: <span class="blood-pill blood-pill-sm" style="display:inline-flex; width:24px; height:24px; font-size:0.7rem;">{{ req.assigned_donor.donor_profile.blood_group if req.assigned_donor.donor_profile else 'Match' }}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div style="display: flex; gap: 0.5rem; align-items: center;">
+                                        <a href="tel:{{ req.assigned_donor.phone }}" class="btn btn-outline btn-sm">
+                                            <i class="fas fa-phone"></i> Call Donor
+                                        </a>
+                                        <a href="https://wa.me/{{ req.assigned_donor.phone|replace(' ', '')|replace('+', '')|replace('-', '') }}" target="_blank" class="btn btn-success btn-sm" title="WhatsApp Chat">
+                                            <i class="fab fa-whatsapp"></i> WhatsApp
+                                        </a>
+                                    </div>
+                                </div>
+                            {% endif %}
+
+                            <!-- Notice if donor already marked donation completed -->
+                            {% if req.donor_completed %}
+                                <div style="margin-top: 1rem; padding: 0.8rem 1rem; background: rgba(16,185,129,0.12); border: 1px solid rgba(16,185,129,0.4); border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.6rem;">
+                                    <div style="font-size: 0.88rem; color: #34D399;">
+                                        <i class="fas fa-circle-check"></i> <strong>Donation Completed by Donor!</strong> Donor has marked their blood donation as completed. Please confirm blood receipt.
+                                    </div>
+                                    <button class="btn btn-success btn-sm" data-modal-target="confirm-received-modal-{{ req.id }}">
+                                        <i class="fas fa-check-double"></i> Confirm Blood Received
+                                    </button>
+                                </div>
+                            {% endif %}
+
+                            <!-- Action Bar for Recipient -->
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 1.2rem; padding-top: 1rem; border-top: 1px solid var(--border-glass); flex-wrap: wrap; gap: 0.8rem;">
+                                <div style="font-size: 0.84rem; color: var(--text-muted);">
+                                    Contact on file: <strong>{{ req.contact_phone }}</strong>
+                                </div>
+
+                                <div style="display: flex; gap: 0.6rem; align-items: center;">
+                                    <!-- Confirm Blood Received Button -->
+                                    {% if req.status in ['Accepted', 'Donation in Progress'] and not req.donor_completed %}
+                                        <button class="btn btn-success btn-sm" data-modal-target="confirm-received-modal-{{ req.id }}">
+                                            <i class="fas fa-circle-check"></i> Confirm Blood Received
+                                        </button>
+                                    {% endif %}
+
+                                    <!-- If Pending, allow cancellation -->
+                                    {% if req.status == 'Pending' %}
+                                        <button class="btn btn-outline btn-sm" style="color:var(--text-muted); border-color:rgba(239,68,68,0.3);" data-modal-target="cancel-modal-{{ req.id }}">
+                                            <i class="fas fa-xmark"></i> Cancel Request
+                                        </button>
+                                    {% elif req.status in ['Accepted', 'Donation in Progress'] %}
+                                        <button class="btn btn-outline btn-sm" style="color:var(--text-muted);" data-modal-target="cancel-modal-{{ req.id }}">
+                                            <i class="fas fa-ban"></i> Cancel
+                                        </button>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- MODAL: Confirm Blood Received -->
+                        <div class="modal-backdrop" id="confirm-received-modal-{{ req.id }}">
+                            <div class="glass-card modal-box">
+                                <button class="modal-close">&times;</button>
+                                <div style="text-align: center; margin-bottom: 1.2rem;">
+                                    <div style="width: 56px; height: 56px; border-radius: 50%; background: rgba(16,185,129,0.2); border: 2px solid #10B981; display: inline-flex; align-items: center; justify-content: center; color: #34D399; font-size: 1.6rem; margin-bottom: 0.8rem;">
+                                        <i class="fas fa-hand-holding-droplet"></i>
+                                    </div>
+                                    <h3 style="font-size: 1.3rem;">Confirm Blood Received</h3>
+                                    <p style="color: var(--text-secondary); font-size: 0.9rem; margin-top: 0.4rem;">
+                                        Confirming that blood units have reached <strong>{{ req.patient_name }}</strong> at <strong>{{ req.hospital_name }}</strong>.
+                                    </p>
+                                </div>
+
+                                <div style="background: rgba(11, 13, 23, 0.6); padding: 1rem; border-radius: var(--radius-sm); border: 1px solid var(--border-glass); margin-bottom: 1.5rem; font-size: 0.88rem; line-height: 1.7;">
+                                    <div><strong>Patient:</strong> {{ req.patient_name }}</div>
+                                    <div><strong>Blood Group & Units:</strong> {{ req.blood_group }} &bull; {{ req.units_needed }} Unit(s)</div>
+                                    <div><strong>Hospital & City:</strong> {{ req.hospital_name }} ({{ req.city }})</div>
+                                    {% if req.assigned_donor %}
+                                        <div><strong>Donor:</strong> {{ req.assigned_donor.name }} ({{ req.assigned_donor.phone }})</div>
+                                    {% endif %}
+                                </div>
+
+                                <form action="{{ url_for('fulfill_request', req_id=req.id) }}" method="POST">
+                                    <div style="display: flex; gap: 0.8rem;">
+                                        <button type="button" class="btn btn-outline" data-modal-close style="flex: 1;">
+                                            Go Back
+                                        </button>
+                                        <button type="submit" class="btn btn-success" style="flex: 1.5;">
+                                            <i class="fas fa-check-circle"></i> Yes, Blood Received
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+
+                        <!-- MODAL: Cancel Request -->
+                        <div class="modal-backdrop" id="cancel-modal-{{ req.id }}">
+                            <div class="glass-card modal-box">
+                                <button class="modal-close">&times;</button>
+                                <h3 style="color: #F87171; margin-bottom: 0.8rem;">
+                                    <i class="fas fa-triangle-exclamation"></i> Cancel Blood Request?
+                                </h3>
+                                <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 1.2rem;">
+                                    Are you sure you want to cancel the blood request for <strong>{{ req.patient_name }}</strong>? This will remove it from active feeds.
+                                </p>
+                                <form action="{{ url_for('cancel_request', req_id=req.id) }}" method="POST">
+                                    <div style="display: flex; gap: 0.8rem; justify-content: flex-end;">
+                                        <button type="button" class="btn btn-outline btn-sm" data-modal-close>Keep Active</button>
+                                        <button type="submit" class="btn btn-danger btn-sm">Confirm Cancellation</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="glass-card" style="padding: 3.5rem 2rem; text-align: center;">
+                    <div style="width: 64px; height: 64px; border-radius: 50%; background: rgba(230,57,70,0.1); border: 1px solid rgba(230,57,70,0.3); display: inline-flex; align-items: center; justify-content: center; color: var(--accent-red); font-size: 1.8rem; margin-bottom: 1rem;">
+                        <i class="fas fa-clipboard-check"></i>
+                    </div>
+                    <h3 style="font-size: 1.3rem;">No Active Requests</h3>
+                    <p style="color: var(--text-secondary); margin: 0.5rem auto 1.5rem auto; font-size: 0.92rem; max-width: 480px;">
+                        You have no ongoing or pending blood requirements at this time. Need urgent blood for someone?
+                    </p>
+                    <button class="btn btn-primary" data-modal-target="new-request-modal">
+                        <i class="fas fa-plus-circle"></i> Post Emergency Blood Request
+                    </button>
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- =================================================================== -->
+        <!-- TAB 2: COMPLETED & PAST REQUESTS (Fulfilled, Cancelled, Rejected)    -->
+        <!-- =================================================================== -->
+        <div id="tab-completed-requests" class="tab-content">
+            {% if completed_requests %}
+                <div style="display: flex; flex-direction: column; gap: 1.2rem;">
+                    {% for req in completed_requests %}
+                        <div class="glass-card" style="padding: 1.4rem;">
+                            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.8rem; flex-wrap: wrap; gap: 0.6rem;">
+                                <div style="display: flex; align-items: center; gap: 0.8rem;">
+                                    <span class="blood-pill blood-pill-sm">{{ req.blood_group }}</span>
+                                    <div>
+                                        <h4 style="font-size: 1.15rem; font-weight: 700;">{{ req.patient_name }}</h4>
+                                        <div style="font-size: 0.82rem; color: var(--text-secondary);">
+                                            <i class="fas fa-hospital"></i> {{ req.hospital_name }} ({{ req.city }}) &bull; {{ req.units_needed }} Unit(s)
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div style="display: flex; align-items: center; gap: 0.6rem;">
+                                    <span class="status-badge {{ req.status_badge_class }}">
+                                        <i class="fas {{ req.status_icon }}"></i> {{ req.status }}
+                                    </span>
+                                </div>
+                            </div>
+
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 0.8rem; padding-top: 0.8rem; border-top: 1px solid var(--border-glass); font-size: 0.82rem; color: var(--text-muted); flex-wrap: wrap; gap: 0.5rem;">
+                                <div>
+                                    {% if req.status == 'Fulfilled' %}
+                                        <i class="fas fa-check-double" style="color:var(--accent-emerald);"></i> 
+                                        Fulfilled on {{ req.fulfilled_at.strftime('%b %d, %Y') if req.fulfilled_at else req.created_at.strftime('%b %d, %Y') }}
+                                        {% if req.assigned_donor %} &bull; Donor: <strong>{{ req.assigned_donor.name }}</strong>{% endif %}
+                                    {% elif req.status == 'Cancelled' %}
+                                        <i class="fas fa-ban"></i> Cancelled on {{ req.cancelled_at.strftime('%b %d, %Y') if req.cancelled_at else 'N/A' }}
+                                    {% elif req.status == 'Rejected' %}
+                                        <i class="fas fa-circle-xmark" style="color:#F87171;"></i> Rejected: {{ req.rejection_reason or 'Unable to fulfill' }}
+                                    {% endif %}
+                                </div>
+
+                                {% if req.status in ['Cancelled', 'Rejected'] %}
+                                    <form action="{{ url_for('reopen_request', req_id=req.id) }}" method="POST" style="margin: 0;">
+                                        <button type="submit" class="btn btn-outline btn-sm">
+                                            <i class="fas fa-arrow-rotate-right"></i> Re-post as Pending
+                                        </button>
+                                    </form>
+                                {% endif %}
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="glass-card" style="padding: 3rem 2rem; text-align: center;">
+                    <i class="fas fa-box-open" style="font-size: 2.8rem; color: var(--text-muted); margin-bottom: 1rem;"></i>
+                    <h4>No Past or Completed Requests</h4>
+                    <p style="color: var(--text-secondary); margin-top: 0.4rem; font-size: 0.9rem;">
+                        Requests that have been fulfilled, cancelled, or closed will be archived here.
+                    </p>
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- =================================================================== -->
+        <!-- TAB 3: DONOR ACCEPTED DONATIONS TO FULFILL                          -->
+        <!-- =================================================================== -->
+        {% if donor %}
+        <div id="tab-assigned-donations" class="tab-content">
+            {% if active_assigned %}
+                <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+                    {% for req in active_assigned %}
+                        <div class="glass-card glass-card-glow" style="padding: 1.6rem; border-color: rgba(14,165,233,0.4);">
+                            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.8rem; flex-wrap: wrap; gap: 0.8rem;">
+                                <div style="display: flex; align-items: center; gap: 0.9rem;">
+                                    <span class="blood-pill">{{ req.blood_group }}</span>
+                                    <div>
+                                        <div style="display: flex; align-items: center; gap: 0.6rem;">
+                                            <h3 style="font-size: 1.3rem; font-weight: 700;">Patient: {{ req.patient_name }}</h3>
+                                            <span class="urgency-badge urgency-{% if 'Critical' in req.urgency %}critical{% elif 'Urgent' in req.urgency %}urgent{% else %}normal{% endif %}">
+                                                {{ req.urgency }}
+                                            </span>
+                                        </div>
+                                        <div style="font-size: 0.88rem; color: var(--text-secondary); margin-top: 0.2rem;">
+                                            <i class="fas fa-hospital" style="color:var(--accent-red);"></i> {{ req.hospital_name }} &bull;
+                                            <i class="fas fa-location-dot"></i> {{ req.city }} &bull;
+                                            <strong>{{ req.units_needed }} Unit(s) Blood Needed</strong>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 0.3rem;">
+                                    <span class="status-badge {{ req.status_badge_class }}" style="padding: 0.4rem 0.9rem; font-size: 0.85rem;">
+                                        <i class="fas {{ req.status_icon }}"></i> {{ req.status }}
+                                    </span>
+                                    <span style="font-size: 0.75rem; color: var(--text-muted);">
+                                        Accepted on {{ req.accepted_at.strftime('%b %d, %Y') if req.accepted_at else req.created_at.strftime('%b %d, %Y') }}
+                                    </span>
+                                </div>
+                            </div>
+
+                            <!-- Recipient Contact Banner -->
+                            <div style="background: rgba(11, 13, 23, 0.6); padding: 1rem 1.2rem; border-radius: var(--radius-sm); border: 1px solid var(--border-glass); margin: 1rem 0; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.8rem;">
+                                <div>
+                                    <div style="font-size: 0.82rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Requester Contact Info</div>
+                                    <div style="font-size: 0.95rem; font-weight: 600; color: var(--text-primary); margin-top: 0.1rem;">
+                                        {{ req.requester.name }} &bull; <i class="fas fa-phone"></i> {{ req.contact_phone }}
+                                    </div>
+                                </div>
+                                <div style="display: flex; gap: 0.5rem;">
+                                    <a href="tel:{{ req.contact_phone }}" class="btn btn-outline btn-sm">
+                                        <i class="fas fa-phone"></i> Call
+                                    </a>
+                                    <a href="https://wa.me/{{ req.contact_phone|replace(' ', '')|replace('+', '')|replace('-', '') }}" target="_blank" class="btn btn-success btn-sm">
+                                        <i class="fab fa-whatsapp"></i> WhatsApp
+                                    </a>
+                                </div>
+                            </div>
+
+                            <!-- If already marked completed by donor -->
+                            {% if req.donor_completed %}
+                                <div style="background: rgba(16,185,129,0.15); border: 1px solid rgba(16,185,129,0.4); padding: 0.9rem 1.2rem; border-radius: var(--radius-sm); color: #34D399; font-size: 0.88rem; display: flex; align-items: center; gap: 0.6rem;">
+                                    <i class="fas fa-circle-check" style="font-size: 1.2rem;"></i>
+                                    <div>
+                                        <strong>Donation Completed!</strong> You marked this donation completed on {{ req.donor_completed_at.strftime('%b %d, %Y at %I:%M %p') if req.donor_completed_at else 'recently' }}. Your availability was set to Unavailable. Awaiting the recipient to confirm blood received.
+                                    </div>
+                                </div>
+                            {% endif %}
+
+                            <!-- Action Buttons for Donor -->
+                            <div style="display: flex; justify-content: flex-end; align-items: center; gap: 0.8rem; margin-top: 1.2rem; padding-top: 1rem; border-top: 1px solid var(--border-glass); flex-wrap: wrap;">
+                                
+                                {% if req.status == 'Accepted' and not req.donor_completed %}
+                                    <form action="{{ url_for('start_donation_progress', req_id=req.id) }}" method="POST" style="margin:0;">
+                                        <button type="submit" class="btn btn-purple btn-sm">
+                                            <i class="fas fa-syringe"></i> Start Donation Process
+                                        </button>
+                                    </form>
+                                {% endif %}
+
+                                {% if not req.donor_completed %}
+                                    <!-- PROMINENT BUTTON: Mark Donation as Completed -->
+                                    <button class="btn btn-success" data-modal-target="mark-completed-modal-{{ req.id }}">
+                                        <i class="fas fa-check-circle"></i> Mark Donation as Completed
+                                    </button>
+                                {% else %}
+                                    <span class="status-badge status-fulfilled" style="padding: 0.5rem 1rem;">
+                                        <i class="fas fa-hourglass-end"></i> Completed & Logged
+                                    </span>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- MODAL: Mark Donation as Completed -->
+                        <div class="modal-backdrop" id="mark-completed-modal-{{ req.id }}">
+                            <div class="glass-card modal-box">
+                                <button class="modal-close">&times;</button>
+                                <div style="text-align: center; margin-bottom: 1.2rem;">
+                                    <div style="width: 58px; height: 58px; border-radius: 50%; background: linear-gradient(135deg, var(--primary-crimson), var(--accent-red)); display: inline-flex; align-items: center; justify-content: center; color: #FFF; font-size: 1.6rem; box-shadow: 0 0 18px rgba(230,57,70,0.6); margin-bottom: 0.8rem;">
+                                        <i class="fas fa-droplet"></i>
+                                    </div>
+                                    <h3 style="font-size: 1.35rem; font-weight: 800;">Mark Donation as Completed</h3>
+                                    <p style="color: var(--text-secondary); font-size: 0.9rem; margin-top: 0.4rem;">
+                                        Confirming your successful blood donation for <strong>{{ req.patient_name }}</strong>.
+                                    </p>
+                                </div>
+
+                                <div style="background: rgba(11, 13, 23, 0.6); padding: 1.2rem; border-radius: var(--radius-sm); border: 1px solid var(--border-glass); margin-bottom: 1.2rem; font-size: 0.88rem; line-height: 1.7;">
+                                    <div><i class="fas fa-hospital" style="color:var(--accent-red);"></i> <strong>Hospital:</strong> {{ req.hospital_name }} ({{ req.city }})</div>
+                                    <div><i class="fas fa-droplet" style="color:var(--accent-red);"></i> <strong>Blood Group & Units:</strong> {{ req.blood_group }} &bull; {{ req.units_needed }} Unit(s)</div>
+                                    <div><i class="fas fa-calendar-day"></i> <strong>Donation Date:</strong> Today ({{ today_str }})</div>
+                                </div>
+
+                                <div style="padding: 0.9rem 1rem; background: rgba(245,158,11,0.12); border: 1px solid rgba(245,158,11,0.3); border-radius: 8px; font-size: 0.84rem; color: #FBBF24; margin-bottom: 1.4rem;">
+                                    <i class="fas fa-triangle-exclamation"></i> <strong>Automatic Updates:</strong> This will automatically set your status to <strong>Unavailable</strong>, record your last donation date, and log this into your permanent donation history.
+                                </div>
+
+                                <form action="{{ url_for('mark_donation_completed', req_id=req.id) }}" method="POST">
+                                    <div style="display: flex; gap: 0.8rem;">
+                                        <button type="button" class="btn btn-outline" data-modal-close style="flex: 1;">
+                                            Cancel
+                                        </button>
+                                        <button type="submit" class="btn btn-success" style="flex: 1.6;">
+                                            <i class="fas fa-check"></i> Yes, Mark Completed
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="glass-card" style="padding: 3.5rem 2rem; text-align: center;">
+                    <i class="fas fa-hand-holding-heart" style="font-size: 3rem; color: var(--accent-red); margin-bottom: 1rem; opacity: 0.8;"></i>
+                    <h3 style="font-size: 1.3rem;">No Active Accepted Donations</h3>
+                    <p style="color: var(--text-secondary); margin: 0.5rem auto 1.5rem auto; font-size: 0.92rem; max-width: 480px;">
+                        You have not currently volunteered for any open requests. Visit the emergency requests feed to find patients in need of your blood group!
+                    </p>
+                    <a href="{{ url_for('requests_feed') }}" class="btn btn-primary">
+                        <i class="fas fa-truck-medical"></i> Browse Emergency Requests Feed
+                    </a>
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- =================================================================== -->
+        <!-- TAB 4: DONATION HISTORY & IMPACT                                    -->
+        <!-- =================================================================== -->
+        <div id="tab-donation-history" class="tab-content">
+            <!-- Impact Counter Row -->
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+                <div class="glass-card" style="padding: 1.2rem; text-align: center;">
+                    <div style="font-size: 2.2rem; font-weight: 800; color: var(--accent-red);">{{ donor.units_donated or 0 }}</div>
+                    <div style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">Total Units Donated</div>
+                </div>
+
+                <div class="glass-card" style="padding: 1.2rem; text-align: center;">
+                    <div style="font-size: 2.2rem; font-weight: 800; color: #10B981;">{{ (donor.units_donated or 0) * 3 }}</div>
+                    <div style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">Potential Lives Saved</div>
+                </div>
+
+                <div class="glass-card" style="padding: 1.2rem; text-align: center;">
+                    <div style="font-size: 1.2rem; font-weight: 700; color: var(--text-primary); margin-top: 0.4rem;">
+                        {{ donor.last_donated or 'Never' }}
+                    </div>
+                    <div style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600; margin-top: 0.5rem;">Last Recorded Date</div>
+                </div>
+            </div>
+
+            <!-- History Records List / Table -->
+            <div class="glass-card" style="padding: 1.6rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                    <h4 style="font-size: 1.2rem; font-weight: 700;">
+                        <i class="fas fa-clock-rotate-left" style="color:var(--accent-red);"></i> Recorded Donation Log
+                    </h4>
+                    <span style="font-size: 0.84rem; color: var(--text-muted);">
+                        Showing {{ donation_history|length }} historical record(s)
+                    </span>
+                </div>
+
+                {% if donation_history %}
+                    <div style="overflow-x: auto;">
+                        <table class="history-table">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Patient / Program</th>
+                                    <th>Blood Group</th>
+                                    <th>Hospital & City</th>
+                                    <th>Units</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for record in donation_history %}
+                                    <tr>
+                                        <td>
+                                            <i class="fas fa-calendar" style="color:var(--accent-red); margin-right:0.3rem;"></i>
+                                            {{ record.donation_date.strftime('%b %d, %Y') }}
+                                        </td>
+                                        <td>
+                                            <strong style="color:var(--text-primary);">{{ record.patient_name }}</strong>
+                                        </td>
+                                        <td>
+                                            <span class="blood-pill blood-pill-sm">{{ record.blood_group }}</span>
+                                        </td>
+                                        <td>
+                                            {{ record.hospital_name }} ({{ record.city }})
+                                        </td>
+                                        <td>
+                                            <span style="font-weight:700; color:var(--text-primary);">{{ record.units }} Unit(s)</span>
+                                        </td>
+                                        <td>
+                                            {% if 'Fulfilled' in record.status %}
+                                                <span class="status-badge status-fulfilled">
+                                                    <i class="fas fa-circle-check"></i> Fulfilled
+                                                </span>
+                                            {% else %}
+                                                <span class="status-badge status-in-progress">
+                                                    <i class="fas fa-check"></i> Completed
+                                                </span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div style="padding: 2.5rem 1rem; text-align: center; color: var(--text-muted);">
+                        <i class="fas fa-file-medical" style="font-size: 2.5rem; margin-bottom: 0.8rem; opacity: 0.6;"></i>
+                        <p style="font-size: 0.92rem;">No donation records logged yet. Accept a request and mark it completed to start your legacy!</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+
+    </div>
+
+</div>
+
+<!-- Reuse New Request Modal -->
+<div class="modal-backdrop" id="new-request-modal">
+    <div class="glass-card modal-box">
+        <button class="modal-close">&times;</button>
+        <h3 style="color: var(--accent-red); margin-bottom: 1rem;">
+            <i class="fas fa-square-plus"></i> Post Emergency Blood Request
+        </h3>
+
+        <form action="{{ url_for('new_request') }}" method="POST">
+            <div class="form-group">
+                <label class="form-label">Patient Name:</label>
+                <input type="text" name="patient_name" class="form-control" placeholder="Full name of patient" required>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                <div class="form-group">
+                    <label class="form-label">Blood Group Needed:</label>
+                    <select name="blood_group" class="form-control" required>
+                        <option value="">Select Group...</option>
+                        <option value="A+">A+</option>
+                        <option value="A-">A-</option>
+                        <option value="B+">B+</option>
+                        <option value="B-">B-</option>
+                        <option value="AB+">AB+</option>
+                        <option value="AB-">AB-</option>
+                        <option value="O+">O+</option>
+                        <option value="O-">O- (Universal Donor)</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Units Needed:</label>
+                    <input type="number" name="units_needed" value="1" min="1" max="10" class="form-control" required>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Hospital Name & Ward:</label>
+                <input type="text" name="hospital_name" class="form-control" placeholder="e.g. St. Jude Hospital, ER Wing" required>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                <div class="form-group">
+                    <label class="form-label">City:</label>
+                    <input type="text" name="city" class="form-control" placeholder="e.g. Nashik, Mumbai, New York" required>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Urgency Level:</label>
+                    <select name="urgency" class="form-control">
+                        <option value="Critical Emergency">Critical Emergency</option>
+                        <option value="Urgent" selected>Urgent</option>
+                        <option value="Normal">Normal Request</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Contact Phone Number:</label>
+                <input type="text" name="contact_phone" value="{{ user.phone }}" class="form-control" placeholder="+1 (555) 000-0000" required>
+            </div>
+
+            <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 1rem; padding: 0.8rem;">
+                <i class="fas fa-paper-plane"></i> Publish Request
+            </button>
+        </form>
+    </div>
+</div>
+{% endblock %}
